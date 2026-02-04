@@ -212,5 +212,6 @@ AI assistance provided by Claude-AI and GitHub Copilot.
 Distributed under the DeskFolder Custom License. See `LICENSE.txt` for details.
 
 
+
 --------------------
 **Note**: This application stores files in local application data. Make sure to back up important files regularly.
