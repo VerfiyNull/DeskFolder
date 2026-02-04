@@ -166,3 +166,6 @@ Thumbs.db
 
 # Project Specific
 *.lock.json
+
+InstallBuild/
+Installer/
