@@ -1,0 +1,37 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DeskFolder.Views.DragCursorWindow"
+        Width="104"
+        Height="116"
+        WindowStartupLocation="Manual"
+        Topmost="True"
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        CanResize="False"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        IsHitTestVisible="False">
+    
+    <StackPanel Spacing="4" HorizontalAlignment="Center">
+        <Image x:Name="DragIcon" 
+               Width="64" 
+               Height="64" 
+               Stretch="Uniform">
+            <Image.Effect>
+                <DropShadowEffect OffsetX="0" OffsetY="2" BlurRadius="8" Color="Black" Opacity="0.6"/>
+            </Image.Effect>
+        </Image>
+        <TextBlock x:Name="DragFileName"
+                   Text="File Name"
+                   FontSize="11"
+                   Foreground="White"
+                   TextAlignment="Center"
+                   TextWrapping="Wrap"
+                   MaxWidth="88">
+            <TextBlock.Effect>
+                <DropShadowEffect OffsetX="0" OffsetY="1" BlurRadius="4" Color="Black" Opacity="0.8"/>
+            </TextBlock.Effect>
+        </TextBlock>
+    </StackPanel>
+</Window>

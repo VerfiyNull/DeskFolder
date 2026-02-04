@@ -1,0 +1,463 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="using:DeskFolder.Models"
+        xmlns:converters="using:DeskFolder.Converters"
+        x:Class="DeskFolder.MainWindow"
+        Title="DeskFolder Manager"
+        Icon="/Assets/icon.png"
+        Width="1400" Height="900"
+        MinWidth="1000" MinHeight="600"
+        Background="Transparent"
+        SystemDecorations="None"
+        TransparencyLevelHint="AcrylicBlur">
+
+    <Window.Resources>
+        <converters:BoolToLockIconConverter x:Key="LockIconConverter"/>
+        <converters:BoolToActiveColorConverter x:Key="ActiveColorConverter"/>
+        <converters:BoolToActiveTextConverter x:Key="ActiveTextConverter"/>
+        <converters:BoolToActiveButtonConverter x:Key="ActiveButtonConverter"/>
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#6C63FF"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Background" Value="#7B72FF"/>
+            <Setter Property="RenderTransform" Value="scale(1.02)"/>
+        </Style>
+        <Style Selector="Button.primary:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.98)"/>
+        </Style>
+        
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#25252A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.secondary:pointerover">
+            <Setter Property="Background" Value="#2D2D35"/>
+            <Setter Property="RenderTransform" Value="scale(1.05)"/>
+        </Style>
+        <Style Selector="Button.secondary:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.95)"/>
+        </Style>
+
+        <Style Selector="Border.folder-card">
+            <Setter Property="Background" Value="#1A1A1D"/>
+            <Setter Property="BorderBrush">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#3A3A42" Offset="0"/>
+                        <GradientStop Color="#2A2A32" Offset="1"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="24"/>
+            <Setter Property="BoxShadow" Value="0 4 16 0 #40000000"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.folder-card:pointerover">
+            <!-- No visual change on hover to avoid distracting highlight -->
+            <Setter Property="BorderBrush">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#3A3A42" Offset="0"/>
+                        <GradientStop Color="#2A2A32" Offset="1"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="BoxShadow" Value="0 4 16 0 #40000000"/>
+        </Style>
+    </Window.Styles>
+
+        <Border Background="#0F0F12" 
+            CornerRadius="16" 
+            BorderThickness="0"
+            ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+            <!-- Custom Title Bar -->
+            <Border Grid.Row="0" Background="#1A1A1D" Padding="16,10" 
+                    PointerPressed="TitleBar_PointerPressed">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <Image Source="/Assets/icon.png" Width="24" Height="24" VerticalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                        <TextBlock Text="DeskFolder Manager" FontSize="13" Foreground="#F0F0F0" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="1">
+                        <Button Content="—" Click="MinimizeWindow_Click" 
+                                Width="42" Height="32" 
+                                Background="Transparent" 
+                                Foreground="#C0C0C0" 
+                                BorderThickness="0" 
+                                FontSize="14"
+                                Padding="0,-5,0,0"
+                                CornerRadius="6"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Cursor="Hand">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover">
+                                    <Setter Property="Background" Value="#2A2A2E"/>
+                                </Style>
+                            </Button.Styles>
+                        </Button>
+                        <Button Content="□" Click="MaximizeWindow_Click" 
+                                Width="42" Height="32" 
+                                Background="Transparent" 
+                                Foreground="#C0C0C0" 
+                                BorderThickness="0" 
+                                FontSize="13"
+                                Padding="0"
+                                CornerRadius="6"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Cursor="Hand">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover">
+                                    <Setter Property="Background" Value="#2A2A2E"/>
+                                </Style>
+                            </Button.Styles>
+                        </Button>
+                        <Button Content="✕" Click="CloseWindow_Click" 
+                                Width="42" Height="32" 
+                                Background="Transparent" 
+                                Foreground="#C0C0C0" 
+                                BorderThickness="0" 
+                                FontSize="14"
+                                Padding="0"
+                                CornerRadius="6"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Cursor="Hand">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover">
+                                    <Setter Property="Background" Value="#E81123"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </Style>
+                            </Button.Styles>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*">
+        <!-- Header Bar with Gradient -->
+        <Border Grid.Row="0" Padding="32,24,32,20">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#1A1A1D" Offset="0"/>
+                    <GradientStop Color="#25252A" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="6">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Grid.Column="0" Background="#6C63FF" Width="4" Height="32" 
+                                CornerRadius="2" Margin="0,0,16,0"/>
+                        <TextBlock Grid.Column="1" Text="DeskFolder" FontSize="32" 
+                                   FontWeight="ExtraBold" Foreground="#FFFFFF" 
+                                   VerticalAlignment="Center"/>
+                    </Grid>
+                    <TextBlock Text="Organize your desktop with customizable floating folder windows" 
+                               FontSize="14" Foreground="#9A9AA8" 
+                               Margin="20,0,0,0"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" 
+                            VerticalAlignment="Center">
+                    <Button Classes="primary" Click="NewFolder_Click" ToolTip.Tip="Create a new folder">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="+" FontSize="18" FontWeight="Bold" 
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="New Folder" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="secondary" Click="Settings_Click" ToolTip.Tip="Open settings">
+                        <TextBlock Text="Settings" FontSize="13"/>
+                    </Button>
+                    <Button Classes="secondary" Click="Backups_Click" ToolTip.Tip="Manage snapshots">
+                        <TextBlock Text="Backups" FontSize="13"/>
+                    </Button>
+                    <Button Classes="secondary" Click="BulkDeleteFolders_Click" ToolTip.Tip="Delete multiple folders">
+                        <TextBlock Text="Delete" FontSize="13"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Stats Bar -->
+        <Border Grid.Row="1" Background="#15151A" Padding="32,16" 
+                BorderThickness="0,1,0,1" BorderBrush="#25252A">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="24">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="TOTAL FOLDERS" FontSize="10" 
+                                   Foreground="#6A6A78" FontWeight="Bold" 
+                                   LetterSpacing="1"/>
+                        <TextBlock Text="{Binding Folders.Count}" FontSize="22" 
+                                   Foreground="#FFFFFF" FontWeight="Bold"/>
+                    </StackPanel>
+                    <Border Width="1" Background="#25252A"/>
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="STATUS" FontSize="10" 
+                                   Foreground="#6A6A78" FontWeight="Bold" 
+                                   LetterSpacing="1"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="8" Height="8" Fill="#4CAF50"/>
+                            <TextBlock Text="Active" FontSize="14" 
+                                       Foreground="#4CAF50" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Content Area with Better Spacing -->
+        <ScrollViewer Grid.Row="2" Padding="8,24,8,64" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Hidden">
+            <DockPanel LastChildFill="True" HorizontalAlignment="Stretch">
+                <!-- Empty State -->
+                <Panel Name="EmptyState" IsVisible="{Binding !Folders.Count}" DockPanel.Dock="Top" HorizontalAlignment="Center">
+                    <Border Background="#1A1A1D" 
+                            BorderBrush="#3A3A42"
+                            BorderThickness="1" 
+                            CornerRadius="20" 
+                            Padding="80" 
+                            HorizontalAlignment="Center" 
+                            VerticalAlignment="Center" 
+                            Margin="0,80"
+                            BoxShadow="0 4 20 0 #30000000">
+                        <StackPanel Spacing="28" MaxWidth="450" HorizontalAlignment="Center">
+                            <Border Background="#25252A" Width="100" Height="100" 
+                                    CornerRadius="50" HorizontalAlignment="Center"
+                                    BoxShadow="0 4 16 0 #40000000">
+                                <TextBlock Text="📂" FontSize="52" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Spacing="14" HorizontalAlignment="Center">
+                                <TextBlock Text="No folders yet" FontSize="28" 
+                                           FontWeight="Bold" Foreground="#FFFFFF" 
+                                           HorizontalAlignment="Center"
+                                           TextAlignment="Center"/>
+                                <TextBlock Text="Create your first folder to get started organizing your files" 
+                                           FontSize="15" Foreground="#9A9AA8" 
+                                           TextWrapping="Wrap" 
+                                           HorizontalAlignment="Center" 
+                                           TextAlignment="Center"
+                                           MaxWidth="380"/>
+                            </StackPanel>
+                            <Button Classes="primary" Click="NewFolder_Click" 
+                                    HorizontalAlignment="Center" Padding="36,16"
+                                    CornerRadius="12">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="+" FontSize="22" FontWeight="Bold" 
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="Create First Folder" FontSize="15" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Panel>
+
+                <!-- Folders Grid -->
+                <ItemsControl Name="FoldersRepeater" ItemsSource="{Binding Folders}" DockPanel.Dock="Top" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="3" Margin="0,0,0,40" HorizontalAlignment="Stretch" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="models:DeskFolderItem">
+                                <Border Classes="folder-card" Margin="6" 
+                                    Height="340" HorizontalAlignment="Stretch">
+                                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+                                    <!-- Header: Icon and Name -->
+                                    <StackPanel Grid.Row="0" Spacing="14" HorizontalAlignment="Center" Margin="0,0,0,16">
+                                        <Border Background="#6C63FF" 
+                                                Width="80" Height="80" CornerRadius="20" 
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding Icon}" FontSize="42" 
+                                                       HorizontalAlignment="Center" 
+                                                       VerticalAlignment="Center"
+                                                       TextAlignment="Center"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" 
+                                                   FontSize="17" Foreground="#FFFFFF" 
+                                                   TextTrimming="CharacterEllipsis"
+                                                   TextAlignment="Center"
+                                                   MaxWidth="340"/>
+                                    </StackPanel>
+                                    
+                                    <!-- Quick Stats -->
+                                    <Grid Grid.Row="1" ColumnDefinitions="*,*,*" Margin="0,0,0,16">
+                                        <StackPanel Grid.Column="0" Spacing="4" HorizontalAlignment="Center">
+                                            <TextBlock Text="📄" FontSize="18" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{Binding FileCount}" 
+                                                       FontSize="15" Foreground="#FFFFFF" 
+                                                       FontWeight="Bold" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Files" FontSize="11" Foreground="#6A6A78" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="4" HorizontalAlignment="Center">
+                                            <TextBlock Text="📐" FontSize="18" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{Binding GridSize}" 
+                                                       FontSize="15" Foreground="#FFFFFF" 
+                                                       FontWeight="Bold" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Grid Size" FontSize="11" Foreground="#6A6A78" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Spacing="4" HorizontalAlignment="Center">
+                                            <TextBlock Text="●" FontSize="18" FontWeight="Bold"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock.Foreground>
+                                                    <SolidColorBrush Color="{Binding IsActive, Converter={StaticResource ActiveColorConverter}}"/>
+                                                </TextBlock.Foreground>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding IsActive, Converter={StaticResource ActiveTextConverter}}" 
+                                                       FontSize="15" Foreground="#FFFFFF" 
+                                                       FontWeight="Bold" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Status" FontSize="11" Foreground="#6A6A78" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    
+                                    <!-- Action Buttons Row 1 -->
+                                    <Grid Grid.Row="3" ColumnDefinitions="*,*,*" Margin="0,0,0,8">
+                                        <Button Grid.Column="0" 
+                                                Click="ChangeIcon_Click" Tag="{Binding}"
+                                                Background="#3A3A42" Foreground="#E0E0E0" 
+                                                Padding="10,9" CornerRadius="8" 
+                                                BorderThickness="0" 
+                                                Margin="0,0,4,0" 
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Cursor="Hand">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock Text="🎨" FontSize="13" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Icon" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="1" 
+                                                Click="RenameFolder_Click" Tag="{Binding}"
+                                                Background="#3A3A42" Foreground="#E0E0E0" 
+                                                Padding="10,9" CornerRadius="8" 
+                                                BorderThickness="0" 
+                                                Margin="4,0,4,0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Cursor="Hand">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock Text="✏️" FontSize="13" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Rename" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="2" 
+                                                Click="GridSize_Click" Tag="{Binding}"
+                                                Background="#3A3A42" Foreground="#E0E0E0" 
+                                                Padding="10,9" CornerRadius="8" 
+                                                BorderThickness="0" 
+                                                Margin="4,0,0,0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Cursor="Hand">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock Text="📐" FontSize="13" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Resize" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                    
+                                    <!-- Action Buttons Row 2 -->
+                                    <Grid Grid.Row="4" ColumnDefinitions="*,*,*">
+                                        <Button Grid.Column="0" 
+                                                Click="EditFolder_Click" Tag="{Binding}"
+                                                Background="#3A3A42" Foreground="#E0E0E0" 
+                                                Padding="10,9" CornerRadius="8" 
+                                                BorderThickness="0" 
+                                                Margin="0,0,4,0" 
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Cursor="Hand">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock Text="✏️" FontSize="13" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Edit" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="1" 
+                                                Click="RefreshFolder_Click" Tag="{Binding}"
+                                                Background="#3A3A42" Foreground="#E0E0E0" 
+                                                Padding="10,9" CornerRadius="8" 
+                                                BorderThickness="0" 
+                                                Margin="4,0,4,0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Cursor="Hand">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock Text="🔄" FontSize="13" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Refresh" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="2" 
+                                                Content="{Binding IsActive, Converter={StaticResource ActiveButtonConverter}}"
+                                                Click="ToggleActive_Click" Tag="{Binding}"
+                                                Background="#6C63FF" Foreground="White" 
+                                                Padding="10,9" CornerRadius="8" 
+                                                BorderThickness="0" FontSize="12" 
+                                                FontWeight="SemiBold" 
+                                                Margin="4,0,0,0"
+                                                HorizontalAlignment="Stretch" 
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Cursor="Hand"/>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border DockPanel.Dock="Bottom" Height="96" />
+            </DockPanel>
+        </ScrollViewer>
+                <Border x:Name="ModalOverlay"
+                    Grid.RowSpan="2"
+                    Background="#80000000"
+                    IsVisible="False"
+                    IsHitTestVisible="True"
+                    PointerPressed="ModalOverlay_PointerPressed"
+                    ZIndex="999"/>
+        </Grid>
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,30 @@
+DeskFolder Custom License
+===========================
+
+This software is provided by KAI ₦UŁŁ under the following terms and conditions:
+
+1. COMMERCIAL USE
+   You may NOT sell this software, or any modified version of this software, for money or any other form of compensation.
+   You may NOT include this software in a commercial product that is sold for money.
+
+2. REDISTRIBUTION
+   You are free to redistribute copies of this software in its original form.
+   Redistribution must retain this license file and all attribution notices.
+
+3. MODIFICATION
+   You are free to modify the source code of this software to create derivative works, provided that:
+   a) You MUST give proper credit to the original author (KAI ₦UŁŁ).
+   b) You MUST keep the Credits/About section of the application intact and unmodified regarding the original authorship.
+   c) You may NOT use the name "DeskFolder" for your modified version. You must choose a different name to avoid confusion with the original project.
+
+4. OPEN SOURCE REQUIREMENT (COPYLEFT)
+   If you distribute a modified version of this software, you MUST make the source code of your modifications available to the public.
+   Your modified version must be released under these same license terms ("Open Source and Free").
+
+5. CLOSED SOURCE / PROPRIETARY USE
+   You may use this software strictly for internal or personal purposes in a closed-source environment.
+   However, if you distribute the software or any modification of it to third parties, the Open Source Requirement (Section 4) applies.
+
+6. DISCLAIMER OF WARRANTY
+   THIS SOFTWARE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+   THE AUTHOR SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING FROM THE USE OF THIS SOFTWARE.

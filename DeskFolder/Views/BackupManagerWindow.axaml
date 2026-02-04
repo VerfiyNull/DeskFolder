@@ -1,0 +1,112 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DeskFolder.Views.BackupManagerWindow"
+        Title="Backup Manager"
+        Width="600" Height="500"
+        Background="Transparent"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        SystemDecorations="None"
+        ShowInTaskbar="False">
+
+    <Window.Styles>
+        <Style Selector="Button:pointerover">
+            <Setter Property="Opacity" Value="0.9"/>
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Name="ContentBorder"
+            Background="#1B1B21"
+            CornerRadius="16"
+            BorderBrush="#2C2C33"
+            BorderThickness="1"
+            Margin="12"
+            ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*,Auto">
+            
+            <!-- Header -->
+            <Border Grid.Row="0" Background="#25252A" Padding="20,16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Backup Manager" FontSize="18" FontWeight="Bold" Foreground="#F0F0F0"/>
+                        <TextBlock Text="Manage your DeskFolder snapshots" FontSize="12" Foreground="#9A9AA8" Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <Button Name="CloseButton" Grid.Column="1" Click="CloseButton_Click"
+                            Content="✕" Width="30" Height="30"
+                            Background="Transparent" Foreground="#9A9AA8"
+                            BorderThickness="0" CornerRadius="4"
+                            Cursor="Hand"/>
+                </Grid>
+            </Border>
+
+            <!-- List -->
+            <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto">
+                <Border Grid.Row="0" Padding="20,16">
+                    <StackPanel Spacing="8">
+                        <Button Name="CreateBackupButton" Click="CreateBackupButton_Click"
+                                Content="Create New Backup"
+                                Background="#6C63FF" Foreground="White"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Padding="10" CornerRadius="8" FontSize="14" FontWeight="SemiBold"
+                                Cursor="Hand"/>
+                        <ProgressBar Name="BackupProgressBar" IsIndeterminate="True" IsVisible="False" Height="4"/>
+                        <TextBlock Name="StatusText" Text="" FontSize="12" Foreground="#E81123" HorizontalAlignment="Center" IsVisible="False"/>
+                    </StackPanel>
+                </Border>
+
+                <ListBox Name="BackupsList" Grid.Row="1" Background="Transparent" 
+                         Padding="20,0,20,20">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#25252A" CornerRadius="8" Padding="12" BorderBrush="#35353C" BorderThickness="1">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Grid.Column="0" Spacing="2">
+                                        <TextBlock Text="{Binding CreationTime, StringFormat='{}{0:g}'}" 
+                                                   Foreground="#F0F0F0" FontWeight="SemiBold" FontSize="14"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding FileName}" Foreground="#9A9AA8" FontSize="11"/>
+                                            <TextBlock Text="•" Foreground="#5A5A68" FontSize="11"/>
+                                            <TextBlock Text="{Binding SizeDisplay}" Foreground="#9A9AA8" FontSize="11"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                        <Button Content="Restore"
+                                                Tag="{Binding}"
+                                                Click="RestoreItem_Click"
+                                                Background="#2F2F36" Foreground="#D0D0D6"
+                                                FontSize="12" Padding="12,6" CornerRadius="6"
+                                                BorderThickness="0" Cursor="Hand"/>
+                                        <Button Content="🗑"
+                                                Tag="{Binding}"
+                                                Click="DeleteItem_Click"
+                                                Background="#2F2F36" Foreground="#E81123"
+                                                FontSize="12" Padding="10,6" CornerRadius="6"
+                                                BorderThickness="0" Cursor="Hand"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+            
+            <!-- Footer -->
+             <Border Grid.Row="2" Background="#1F1F24" Padding="16,12" BorderBrush="#2C2C33" BorderThickness="0,1,0,0">
+                <TextBlock Text="Automatic backups can be configured in settings" 
+                           Foreground="#5A5A68" FontSize="11" HorizontalAlignment="Center"/>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
