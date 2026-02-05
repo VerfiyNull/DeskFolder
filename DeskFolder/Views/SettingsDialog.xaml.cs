@@ -11,13 +11,16 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using System.Runtime.Versioning;
 using DeskFolder.Helpers;
-using Avalonia.Threading;
+using System.Text.Json;
+using Avalonia.Platform.Storage;
+using DeskFolder.Models;
 
 namespace DeskFolder.Views;
 
@@ -28,6 +31,11 @@ public partial class SettingsDialog : Window
     public bool AutoLaunchEnabled { get; set; }
     public bool ShowHoverBorder { get; set; } = true;
     public bool EnableAcrylicBackground { get; set; } = true;
+    public bool ShowInTaskbar { get; set; } = true;
+    
+    // New property for passing imported global settings back to Main
+    public DeskFolderItem? ImportedGlobalSettings { get; private set; }
+    
     public Dictionary<string, string> Keybinds { get; set; } = null!;
 
     private string? _recordingKeybind;
@@ -100,7 +108,7 @@ public partial class SettingsDialog : Window
 
     private async Task LoadValuesAsync() 
     {
-        var autoLaunchToggle = this.FindControl<CheckBox>("AutoLaunchToggle");
+        var autoLaunchToggle = this.FindControl<ToggleButton>("AutoLaunchToggle");
         if (autoLaunchToggle != null)
         {
             AutoLaunchEnabled = await Task.Run(() => 
@@ -111,20 +119,77 @@ public partial class SettingsDialog : Window
             autoLaunchToggle.IsChecked = AutoLaunchEnabled;
         }
  
-        var hoverBorderToggle = this.FindControl<CheckBox>("HoverBorderToggle");
+        var hoverBorderToggle = this.FindControl<ToggleButton>("HoverBorderToggle");
         if (hoverBorderToggle != null)
             hoverBorderToggle.IsChecked = ShowHoverBorder;
 
-        var acrylicToggle = this.FindControl<CheckBox>("AcrylicToggle");
+        var acrylicToggle = this.FindControl<ToggleButton>("AcrylicToggle");
         if (acrylicToggle != null)
             acrylicToggle.IsChecked = EnableAcrylicBackground;
+
+        var taskbarToggle = this.FindControl<ToggleButton>("TaskbarToggle");
+        if (taskbarToggle != null)
+            taskbarToggle.IsChecked = ShowInTaskbar;
 
         LoadKeybinds();
     }
 
+    private async void ImportGlobalButton_Click(object? sender, RoutedEventArgs e)
+    {
+        var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard is { } clipboard)
+        {
+            try
+            {
+                var text = await clipboard.GetTextAsync();
+                if (string.IsNullOrEmpty(text) || !text.StartsWith("DESKFOLDER-SETTINGS:"))
+                {
+                     var btn = this.FindControl<Button>("ImportGlobalButton");
+                     if (btn != null)
+                     {
+                         var oldContent = "Paste Settings to All Folders"; // Default text fallback
+                         var oldBrush = new SolidColorBrush(Color.Parse("#2A2A30"));
+                         
+                         btn.Content = "Clipboard Empty or Invalid";
+                         btn.Background = new SolidColorBrush(Color.Parse("#F44336"));
+                         await Task.Delay(1500);
+                         btn.Content = oldContent;
+                         btn.Background = oldBrush;
+                     }
+                     return;
+                }
+
+                var base64 = text.Substring("DESKFOLDER-SETTINGS:".Length);
+                var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+                var importedItem = JsonSerializer.Deserialize<DeskFolderItem>(json);
+                
+                if (importedItem != null)
+                {
+                    ImportedGlobalSettings = importedItem;
+                    
+                    var btn = this.FindControl<Button>("ImportGlobalButton");
+                    if (btn != null)
+                    {
+                        btn.Content = "✅  Loaded! Click Save to Apply";
+                        btn.Background = new SolidColorBrush(Color.Parse("#4CAF50")); // Green
+                    }
+                }
+            }
+            catch
+            {
+                 var btn = this.FindControl<Button>("ImportGlobalButton");
+                 if (btn != null)
+                 {
+                     btn.Content = "Error Reading Data";
+                     btn.Background = new SolidColorBrush(Color.Parse("#F44336")); // Red
+                 }
+            }
+        }
+    }
+
     private async void SaveButton_Click(object? sender, RoutedEventArgs e)
     {
-        var autoLaunchToggle = this.FindControl<CheckBox>("AutoLaunchToggle");
+        var autoLaunchToggle = this.FindControl<ToggleButton>("AutoLaunchToggle");
         if (autoLaunchToggle != null)
         {
             AutoLaunchEnabled = autoLaunchToggle.IsChecked ?? false;
@@ -136,13 +201,17 @@ public partial class SettingsDialog : Window
             });
         }
 
-        var hoverBorderToggle = this.FindControl<CheckBox>("HoverBorderToggle");
+        var hoverBorderToggle = this.FindControl<ToggleButton>("HoverBorderToggle");
         if (hoverBorderToggle != null)
             ShowHoverBorder = hoverBorderToggle.IsChecked ?? true;
 
-        var acrylicToggle = this.FindControl<CheckBox>("AcrylicToggle");
+        var acrylicToggle = this.FindControl<ToggleButton>("AcrylicToggle");
         if (acrylicToggle != null)
             EnableAcrylicBackground = acrylicToggle.IsChecked ?? true;
+
+        var taskbarToggle = this.FindControl<ToggleButton>("TaskbarToggle");
+        if (taskbarToggle != null)
+            ShowInTaskbar = taskbarToggle.IsChecked ?? true;
         
         DialogResult = true;
         Tag = true;
@@ -153,6 +222,23 @@ public partial class SettingsDialog : Window
     {
         Tag = false;
         Close();
+    }
+
+    private void ResetButton_Click(object? sender, RoutedEventArgs e)
+    {
+        // Reset to default values (does not save until Save clicked)
+        
+        var autoLaunchToggle = this.FindControl<ToggleButton>("AutoLaunchToggle");
+        if (autoLaunchToggle != null) autoLaunchToggle.IsChecked = false;
+
+        var taskbarToggle = this.FindControl<ToggleButton>("TaskbarToggle");
+        if (taskbarToggle != null) taskbarToggle.IsChecked = true;
+        
+        var hoverBorderToggle = this.FindControl<ToggleButton>("HoverBorderToggle");
+        if (hoverBorderToggle != null) hoverBorderToggle.IsChecked = true;
+        
+        var acrylicToggle = this.FindControl<ToggleButton>("AcrylicToggle");
+        if (acrylicToggle != null) acrylicToggle.IsChecked = true;
     }
 
     private void LoadKeybinds()

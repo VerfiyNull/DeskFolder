@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private readonly List<FolderWindow> _openFolderWindows = new();
     private bool _showHoverBorder = true;
     private bool _enableAcrylicBackground = true;
+    private bool _showInTaskbar = true;
     private Dictionary<string, string> _keybinds = new();
     private CancellationTokenSource? _saveDebounceCts;
     private Window? _activeModalWindow;
@@ -57,6 +58,8 @@ public partial class MainWindow : Window
     
     public bool AllowExit { get; set; } = false;
 
+    private bool _isClosing = false;
+    
     public MainWindow()
     {
         InitializeComponent();
@@ -106,16 +109,43 @@ public partial class MainWindow : Window
         };
         
         KeyDown += MainWindow_KeyDown;
-        
         // Auto-save on window closing
         Closing += async (s, e) =>
         {
-            _activeModalWindow?.Close();
-            foreach (var win in _openFolderWindows)
+            // Prevent duplicate saving
+            if (_isClosing)
             {
-                win.Folder.X = win.Position.X;
-                win.Folder.Y = win.Position.Y;
+                return;
             }
+            _isClosing = true;
+            
+            // Close modal dialog if open
+            if (_activeModalWindow != null)
+            {
+                try
+                {
+                    _activeModalWindow.Close();
+                }
+                catch { }
+                finally
+                {
+                    _activeModalWindow = null;
+                    SetModalOverlay(false);
+                }
+            }
+            
+            // Close all folder windows
+            foreach (var win in _openFolderWindows.ToList())
+            {
+                try
+                {
+                    win.Folder.X = win.Position.X;
+                    win.Folder.Y = win.Position.Y;
+                    win.Close();
+                }
+                catch { }
+            }
+            
             await SaveAppStateAsync();
         };
 
@@ -264,6 +294,7 @@ public partial class MainWindow : Window
         {
             _showHoverBorder = settings.ShowHoverBorder;
             _enableAcrylicBackground = settings.EnableAcrylicBackground;
+            _showInTaskbar = settings.ShowInTaskbar;
             
             // Only load valid keybinds - filter out removed ones
             if (settings.Keybinds != null && settings.Keybinds.Count > 0)
@@ -454,6 +485,7 @@ public partial class MainWindow : Window
             Folders = folderSnapshots,
             ShowHoverBorder = _showHoverBorder,
             EnableAcrylicBackground = _enableAcrylicBackground,
+            ShowInTaskbar = _showInTaskbar,
             Keybinds = _keybinds
         };
 
@@ -612,14 +644,20 @@ public partial class MainWindow : Window
         _activeModalWindow = dialog;
         SetModalOverlay(true);
         
+        var tcs = new TaskCompletionSource<object?>();
+        
         dialog.Closed += (s, e) =>
         {
             _activeModalWindow = null;
             SetModalOverlay(false);
+            tcs.TrySetResult(null);
         };
         
         CenterDialogOnMain(dialog);
-        await dialog.ShowDialog(this);
+        dialog.Show();
+        dialog.Activate();
+        
+        await tcs.Task;
     }
 
     private async Task<T?> ShowModalAsync<T>(Window dialog)
@@ -627,25 +665,28 @@ public partial class MainWindow : Window
         _activeModalWindow = dialog;
         SetModalOverlay(true);
         
+        var tcs = new TaskCompletionSource<T?>();
+        
         dialog.Closed += (s, e) =>
         {
             _activeModalWindow = null;
             SetModalOverlay(false);
+            
+            if (dialog.Tag is T tagValue)
+            {
+                tcs.TrySetResult(tagValue);
+            }
+            else
+            {
+                tcs.TrySetResult(default(T));
+            }
         };
         
         CenterDialogOnMain(dialog);
-        var result = await dialog.ShowDialog<object?>(this);
+        dialog.Show();
+        dialog.Activate();
         
-        if (result is T value)
-        {
-            return value;
-        }
-        else if (dialog.Tag is T tagValue)
-        {
-            return tagValue;
-        }
-        
-        return default;
+        return await tcs.Task;
     }
 
     public void OpenSettingsFromTray()
@@ -732,8 +773,8 @@ public partial class MainWindow : Window
             AutoLaunchEnabled = System.OperatingSystem.IsWindows() && DeskFolder.Helpers.StartupManager.IsStartupEnabled(),
             ShowHoverBorder = _showHoverBorder,
             EnableAcrylicBackground = _enableAcrylicBackground,
-            Keybinds = new Dictionary<string, string>(_keybinds),
-            ShowInTaskbar = false
+            ShowInTaskbar = _showInTaskbar,
+            Keybinds = new Dictionary<string, string>(_keybinds)
         };
 
         ConfigureDialogWindow(dialog);
@@ -747,13 +788,53 @@ public partial class MainWindow : Window
         {
             _showHoverBorder = dialog.ShowHoverBorder;
             _enableAcrylicBackground = dialog.EnableAcrylicBackground;
+            _showInTaskbar = dialog.ShowInTaskbar;
             _keybinds = new Dictionary<string, string>(dialog.Keybinds);
             
             foreach (var win in _openFolderWindows)
             {
                 win.UpdateSettings(_showHoverBorder, _enableAcrylicBackground, _keybinds);
+                win.UpdateTaskbarVisibility(_showInTaskbar);
             }
             
+            await SaveAppStateAsync();
+        }
+
+        if (dialog.ImportedGlobalSettings != null)
+        {
+            var imported = dialog.ImportedGlobalSettings;
+            foreach (var folder in Folders)
+            {
+                folder.BackgroundOpacity = imported.BackgroundOpacity;
+                folder.WindowBackgroundColor = imported.WindowBackgroundColor;
+                folder.TitleBarBackgroundColor = imported.TitleBarBackgroundColor;
+                folder.TitleTextColor = imported.TitleTextColor;
+                folder.IconSize = imported.IconSize;
+                folder.ShowFileNames = imported.ShowFileNames;
+                folder.ShowBorder = imported.ShowBorder;
+                folder.SnapToGrid = imported.SnapToGrid;
+                folder.ShowWindowTitle = imported.ShowWindowTitle;
+                folder.Color = imported.Color;
+                folder.AlwaysOnTop = imported.AlwaysOnTop;
+                // Note: GridColumns, Width, Height intentionally NOT copied to preserve window layout
+            }
+            
+            // Refresh all open windows to apply the new settings visually
+            foreach (var win in _openFolderWindows.ToList())
+            {
+                var savedX = win.Position.X;
+                var savedY = win.Position.Y;
+                var folder = win.Folder;
+                
+                folder.X = savedX;
+                folder.Y = savedY;
+                
+                win._skipPositionSaveOnClose = true;
+                win.Close();
+                OpenFolderWindow(folder);
+            }
+            
+            // Save immediately after applying global settings
             await SaveAppStateAsync();
         }
     }
@@ -872,13 +953,19 @@ public partial class MainWindow : Window
             return;
         }
 
-        var folderWindow = new FolderWindow(folder, folder.ShowFileNames, _showHoverBorder, _enableAcrylicBackground, _keybinds);
+        var folderWindow = new FolderWindow(folder, folder.ShowFileNames, _showHoverBorder, _enableAcrylicBackground, _keybinds)
+        {
+            ShowInTaskbar = _showInTaskbar
+        };
         folderWindow.Closed += (s, e) =>
         {
             _openFolderWindows.Remove(folderWindow);
         };
         _openFolderWindows.Add(folderWindow);
         folderWindow.Show();
+        
+        // Trigger file refresh AFTER window is shown for instant appearance
+        folder.RefreshFiles();
     }
 
 
@@ -1191,11 +1278,11 @@ public partial class MainWindow : Window
 
         var foldersPanel = new StackPanel { Spacing = 8 };
         var selectedFolders = new System.Collections.Generic.List<DeskFolderItem>();
-        var folderCheckboxes = new System.Collections.Generic.List<CheckBox>();
+        var folderBorders = new System.Collections.Generic.List<Border>();
         Action updateSelectToggle = () =>
         {
-            var total = folderCheckboxes.Count;
-            var checkedCount = folderCheckboxes.Count(cb => cb.IsChecked == true);
+            var total = folderBorders.Count;
+            var checkedCount = selectedFolders.Count;
             var allChecked = total > 0 && checkedCount == total;
             selectToggleBtn.Content = allChecked ? "Unselect All" : "Select All";
         };
@@ -1208,101 +1295,136 @@ public partial class MainWindow : Window
                 CornerRadius = new CornerRadius(8),
                 Padding = new Avalonia.Thickness(12),
                 BorderThickness = new Avalonia.Thickness(2),
-                BorderBrush = new SolidColorBrush(Color.Parse("#3A3A42"))
+                BorderBrush = new SolidColorBrush(Color.Parse("#3A3A42")),
+                Cursor = new Cursor(StandardCursorType.Hand)
             };
 
-            var checkBox = new CheckBox
+            var content = new StackPanel
             {
-                Content = new StackPanel
+                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                Spacing = 12,
+                Children =
                 {
-                    Orientation = Avalonia.Layout.Orientation.Horizontal,
-                    Spacing = 12,
-                    Children =
+                    new TextBlock
                     {
-                        new TextBlock
+                        Text = folder.Icon,
+                        FontSize = 24,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                    },
+                    new StackPanel
+                    {
+                        Spacing = 4,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        Children =
                         {
-                            Text = folder.Icon,
-                            FontSize = 24,
-                            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
-                        },
-                        new StackPanel
-                        {
-                            Spacing = 4,
-                            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                            Children =
+                            new TextBlock
                             {
-                                new TextBlock
+                                Text = folder.Name,
+                                FontSize = 14,
+                                FontWeight = FontWeight.SemiBold,
+                                Foreground = new SolidColorBrush(Colors.White)
+                            },
+                            new StackPanel
+                            {
+                                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                                Spacing = 8,
+                                Children =
                                 {
-                                    Text = folder.Name,
-                                    FontSize = 14,
-                                    FontWeight = FontWeight.SemiBold,
-                                    Foreground = new SolidColorBrush(Colors.White)
-                                },
-                                new StackPanel
-                                {
-                                    Orientation = Avalonia.Layout.Orientation.Horizontal,
-                                    Spacing = 8,
-                                    Children =
+                                    new TextBlock
                                     {
-                                        new TextBlock
-                                        {
-                                            Text = $"{folder.FileCount} files",
-                                            FontSize = 11,
-                                            Foreground = new SolidColorBrush(Color.Parse("#6A6A78"))
-                                        },
-                                        new TextBlock
-                                        {
-                                            Text = "•",
-                                            FontSize = 11,
-                                            Foreground = new SolidColorBrush(Color.Parse("#6A6A78"))
-                                        },
-                                        new TextBlock
-                                        {
-                                            Text = folder.GridSize,
-                                            FontSize = 11,
-                                            Foreground = new SolidColorBrush(Color.Parse("#6A6A78"))
-                                        }
+                                        Text = $"{folder.FileCount} files",
+                                        FontSize = 11,
+                                        Foreground = new SolidColorBrush(Color.Parse("#6A6A78"))
+                                    },
+                                    new TextBlock
+                                    {
+                                        Text = "•",
+                                        FontSize = 11,
+                                        Foreground = new SolidColorBrush(Color.Parse("#6A6A78"))
+                                    },
+                                    new TextBlock
+                                    {
+                                        Text = folder.GridSize,
+                                        FontSize = 11,
+                                        Foreground = new SolidColorBrush(Color.Parse("#6A6A78"))
                                     }
                                 }
                             }
                         }
                     }
-                },
-                Foreground = new SolidColorBrush(Colors.White),
-                Cursor = new Cursor(StandardCursorType.Hand)
+                }
             };
 
-            checkBox.IsCheckedChanged += (s, args) =>
+            folderBorder.Child = content;
+
+            // Click handler for selection toggle
+            folderBorder.PointerPressed += (s, args) =>
             {
-                if (checkBox.IsChecked == true)
-                {
-                    selectedFolders.Add(folder);
-                    folderBorder.BorderBrush = new SolidColorBrush(Color.Parse("#FF6B6B"));
-                }
-                else
+                if (selectedFolders.Contains(folder))
                 {
                     selectedFolders.Remove(folder);
                     folderBorder.BorderBrush = new SolidColorBrush(Color.Parse("#3A3A42"));
+                    folderBorder.Background = new SolidColorBrush(Color.Parse("#25252A"));
+                }
+                else
+                {
+                    selectedFolders.Add(folder);
+                    folderBorder.BorderBrush = new SolidColorBrush(Color.Parse("#FF6B6B"));
+                    folderBorder.Background = new SolidColorBrush(Color.Parse("#2A2020"));
                 }
 
                 updateSelectToggle();
             };
 
-            folderBorder.Child = checkBox;
+            // Hover effects
+            folderBorder.PointerEntered += (s, args) =>
+            {
+                if (!selectedFolders.Contains(folder))
+                {
+                    folderBorder.Background = new SolidColorBrush(Color.Parse("#2F2F36"));
+                }
+            };
+
+            folderBorder.PointerExited += (s, args) =>
+            {
+                if (!selectedFolders.Contains(folder))
+                {
+                    folderBorder.Background = new SolidColorBrush(Color.Parse("#25252A"));
+                }
+            };
+
             foldersPanel.Children.Add(folderBorder);
-            folderCheckboxes.Add(checkBox);
+            folderBorders.Add(folderBorder);
         }
 
         selectToggleBtn.Click += (s, args) =>
         {
-            var total = folderCheckboxes.Count;
-            var checkedCount = folderCheckboxes.Count(cb => cb.IsChecked == true);
-            var allChecked = total > 0 && checkedCount == total;
+            var total = folderBorders.Count;
+            var allChecked = selectedFolders.Count == total && total > 0;
 
-            foreach (var cb in folderCheckboxes)
+            selectedFolders.Clear();
+            
+            if (!allChecked)
             {
-                cb.IsChecked = !allChecked;
+                // Select all
+                for (int i = 0; i < Folders.Count; i++)
+                {
+                    selectedFolders.Add(Folders[i]);
+                    folderBorders[i].BorderBrush = new SolidColorBrush(Color.Parse("#FF6B6B"));
+                    folderBorders[i].Background = new SolidColorBrush(Color.Parse("#2A2020"));
+                }
             }
+            else
+            {
+                // Unselect all
+                foreach (var border in folderBorders)
+                {
+                    border.BorderBrush = new SolidColorBrush(Color.Parse("#3A3A42"));
+                    border.Background = new SolidColorBrush(Color.Parse("#25252A"));
+                }
+            }
+            
+            updateSelectToggle();
         };
 
         updateSelectToggle();
@@ -1569,6 +1691,10 @@ public partial class MainWindow : Window
     {
         if (sender is Button button && button.Tag is DeskFolderItem folder)
         {
+            // Disable button while refreshing
+            if (folder.IsRefreshing)
+                return;
+                
             folder.RefreshFiles();
             
             // If window is open, sync position before closing

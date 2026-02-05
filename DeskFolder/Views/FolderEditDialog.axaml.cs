@@ -12,7 +12,10 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using DeskFolder.Models;
+using System.Text.Json;
 
 namespace DeskFolder.Views;
 
@@ -52,6 +55,9 @@ public partial class FolderEditDialog : Window
                 e.Handled = true;
             }
         };
+        
+        // Allow main window to close by closing this dialog when deactivated
+        Deactivated += FolderEditDialog_Deactivated;
         
         // Ensure proper cleanup on close
         Closed += (s, e) =>
@@ -248,37 +254,130 @@ public partial class FolderEditDialog : Window
         TitleTextColor = "#FFFFFF";
         TitleBarBackgroundColor = "#2D2D35";
         WindowBackgroundColor = "#1A1A1D";
-
+        
+        // Refresh UI from values we just reset
         if (LockToggle != null) LockToggle.IsChecked = IsLocked;
         if (BorderToggle != null) BorderToggle.IsChecked = ShowBorder;
         if (GridToggle != null) GridToggle.IsChecked = SnapToGrid;
         if (FileNamesToggle != null) FileNamesToggle.IsChecked = ShowFileNames;
         if (TopmostToggle != null) TopmostToggle.IsChecked = AlwaysOnTop;
         if (WindowTitleToggle != null) WindowTitleToggle.IsChecked = ShowWindowTitle;
-
-        if (OpacitySlider != null)
-        {
-            OpacitySlider.Minimum = ShowWindowTitle ? 0.0 : 0.1;
-            OpacitySlider.Value = BackgroundOpacity;
-        }
-        if (OpacityValue != null)
-        {
-            OpacityValue.Text = "100%";
-        }
+        if (OpacitySlider != null) OpacitySlider.Value = BackgroundOpacity;
+        if (IconSizeSlider != null) IconSizeSlider.Value = 64;
         
-        if (IconSizeSlider != null)
-        {
-            IconSizeSlider.Value = 64;
-        }
-        if (IconSizeValue != null)
-        {
-            IconSizeValue.Text = "64 px";
-        }
-
+        UpdatePreviews();
+    }
+    
+    private void UpdatePreviews()
+    {
         UpdateColorButton(BorderColorButton, BorderColorPreview, BorderColorValue, BorderColor);
         UpdateColorButton(TitleTextColorButton, TitleTextColorPreview, TitleTextColorValue, TitleTextColor);
         UpdateColorButton(TitleBarBgColorButton, TitleBarBgColorPreview, TitleBarBgColorValue, TitleBarBackgroundColor);
         UpdateColorButton(WindowBgColorButton, WindowBgColorPreview, WindowBgColorValue, WindowBackgroundColor);
+    }
+    
+    private async void ExportButton_Click(object? sender, RoutedEventArgs e)
+    {
+        var settings = new
+        {
+            IsLocked = LockToggle.IsChecked ?? false,
+            ShowBorder = BorderToggle.IsChecked ?? true,
+            SnapToGrid = GridToggle.IsChecked ?? true,
+            ShowFileNames = FileNamesToggle.IsChecked ?? true,
+            AlwaysOnTop = TopmostToggle.IsChecked ?? false,
+            ShowWindowTitle = WindowTitleToggle.IsChecked ?? false,
+            BackgroundOpacity = OpacitySlider.Value,
+            IconSize = (int)IconSizeSlider.Value,
+            Color = BorderColor,
+            TitleTextColor = TitleTextColor,
+            TitleBarBackgroundColor = TitleBarBackgroundColor,
+            WindowBackgroundColor = WindowBackgroundColor
+        };
+
+        var json = JsonSerializer.Serialize(settings);
+        var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
+
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.Clipboard is { } clipboard)
+            {
+                await clipboard.SetTextAsync("DESKFOLDER-SETTINGS:" + base64);
+                
+                if (sender is Button btn)
+                {
+                   var oldContent = btn.Content;
+                   btn.Content = "Copied!";
+                   await Task.Delay(1000);
+                   btn.Content = oldContent;
+                }
+            }
+        }
+        catch { }
+    }
+
+    private async void ImportButton_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.Clipboard is { } clipboard)
+            {
+                var text = await clipboard.GetTextAsync();
+                if (string.IsNullOrEmpty(text) || !text.StartsWith("DESKFOLDER-SETTINGS:"))
+                {
+                     if (sender is Button btn)
+                     {
+                        var oldContent = btn.Content;
+                        var oldBrush = btn.Foreground;
+                        btn.Content = "Invalid Data";
+                        btn.Foreground = Brushes.Red;
+                        await Task.Delay(1000);
+                        btn.Content = oldContent;
+                        btn.Foreground = oldBrush;
+                     }
+                     return;
+                }
+
+                var base64 = text.Substring("DESKFOLDER-SETTINGS:".Length);
+                var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                
+                if (root.TryGetProperty("IsLocked", out var prop)) LockToggle.IsChecked = prop.GetBoolean();
+                if (root.TryGetProperty("ShowBorder", out prop)) BorderToggle.IsChecked = prop.GetBoolean();
+                if (root.TryGetProperty("SnapToGrid", out prop)) GridToggle.IsChecked = prop.GetBoolean();
+                if (root.TryGetProperty("ShowFileNames", out prop)) FileNamesToggle.IsChecked = prop.GetBoolean();
+                if (root.TryGetProperty("AlwaysOnTop", out prop)) TopmostToggle.IsChecked = prop.GetBoolean();
+                if (root.TryGetProperty("ShowWindowTitle", out prop)) WindowTitleToggle.IsChecked = prop.GetBoolean();
+                if (root.TryGetProperty("BackgroundOpacity", out prop)) OpacitySlider.Value = prop.GetDouble();
+                if (root.TryGetProperty("IconSize", out prop)) IconSizeSlider.Value = prop.GetInt32();
+                
+                if (root.TryGetProperty("Color", out prop)) { BorderColor = prop.GetString() ?? BorderColor; UpdatePreviews(); }
+                if (root.TryGetProperty("TitleTextColor", out prop)) { TitleTextColor = prop.GetString() ?? TitleTextColor; UpdatePreviews(); }
+                if (root.TryGetProperty("TitleBarBackgroundColor", out prop)) { TitleBarBackgroundColor = prop.GetString() ?? TitleBarBackgroundColor; UpdatePreviews(); }
+                if (root.TryGetProperty("WindowBackgroundColor", out prop)) { WindowBackgroundColor = prop.GetString() ?? WindowBackgroundColor; UpdatePreviews(); }
+                
+                if (sender is Button btnSuccess)
+                {
+                   var oldContent = btnSuccess.Content;
+                   var oldBrush = btnSuccess.Foreground;
+                   btnSuccess.Content = "Pasted!";
+                   btnSuccess.Foreground = Brushes.Green;
+                   await Task.Delay(1000);
+                   btnSuccess.Content = oldContent;
+                   btnSuccess.Foreground = oldBrush;
+                }
+            }
+        }
+        catch { }
+    }
+    
+    private void FolderEditDialog_Deactivated(object? sender, EventArgs e)
+    {
+        // Allow the user to interact with the main window
+        // by not forcing focus back to this dialog
     }
     
     private void Window_PointerPressed(object? sender, PointerPressedEventArgs e)

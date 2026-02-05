@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Avalonia.Threading;
 using DeskFolder.Helpers;
 
 namespace DeskFolder.Models;
@@ -31,6 +32,7 @@ public class DeskFolderItem : INotifyPropertyChanged
     private string _titleBarBackgroundColor = "#2D2D35";
     private string _windowBackgroundColor = "#1A1A1D";
     private int _iconSize = 64;
+    private bool _isRefreshing = false;
 
     public string Id
     {
@@ -150,6 +152,12 @@ public class DeskFolderItem : INotifyPropertyChanged
     {
         get => _iconSize;
         set => SetField(ref _iconSize, Math.Clamp(value, 32, 128));
+    }
+    
+    public bool IsRefreshing
+    {
+        get => _isRefreshing;
+        set => SetField(ref _isRefreshing, value);
     }
 
     public int GridColumns
@@ -311,100 +319,153 @@ public class DeskFolderItem : INotifyPropertyChanged
         var folderPath = GetFolderPath();
         if (!Directory.Exists(folderPath)) return;
 
-        // Unblock reliably on background
-        Task.Run(() => { try { FileUnblocker.UnblockDirectory(folderPath, recursive: true); } catch { } });
+        // Set refreshing state
+        IsRefreshing = true;
 
-        // Cache existing items by path to preserve properties and icons
-        var existingItems = Files.ToDictionary(f => f.FullPath, StringComparer.OrdinalIgnoreCase);
-        var newFilesList = new List<FileReference>();
-
-        int cellWidth = IconSize + (ShowFileNames ? 52 : 8);
-        int cellHeight = cellWidth;
-        int index = 0;
-
-        // Helper to calculate position
-        (double X, double Y) GetNextPosition(int idx)
+        // Run all IO and heavy processing on background thread to prevent UI freeze
+        _ = Task.Run(async () =>
         {
-            int col = idx % GridColumns;
-            int row = idx / GridColumns;
-            return (col * cellWidth, row * cellHeight);
-        }
-
-        try
-        {
-            var entries = new List<string>();
-            try { entries.AddRange(Directory.GetDirectories(folderPath)); } catch { }
-            try { entries.AddRange(Directory.GetFiles(folderPath)); } catch { }
-
-            foreach (var path in entries)
+            try
             {
-                bool isFolder = Directory.Exists(path);
-                
-                // Reuse existing object if available
-                if (existingItems.TryGetValue(path, out var existing))
+                // Unblock files
+                try { FileUnblocker.UnblockDirectory(folderPath, recursive: true); } catch { }
+
+                // 1. Heavy IO - Gathering File Info
+                var existingItems = Files.ToDictionary(f => f.FullPath, StringComparer.OrdinalIgnoreCase);
+                var newFilesList = new List<FileReference>();
+
+                int cellWidth = IconSize + (ShowFileNames ? 52 : 8);
+                int cellHeight = cellWidth;
+                int index = 0;
+
+                (double X, double Y) GetNextPosition(int idx)
                 {
-                    // Update key properties if needed, but keep Position and Icon if valid
-                    // We assume external changes don't need immediate icon refresh for performance
-                    existing.ModifiedDate = File.GetLastWriteTime(path);
-                    newFilesList.Add(existing);
-                    
-                    // Mark as visited by removing from dictionary
-                    existingItems.Remove(path);
+                    int col = idx % GridColumns;
+                    int row = idx / GridColumns;
+                    return (col * cellWidth, row * cellHeight);
                 }
-                else
+
+                var entries = new List<string>();
+                try { entries.AddRange(Directory.GetDirectories(folderPath)); } catch { }
+                try { entries.AddRange(Directory.GetFiles(folderPath)); } catch { }
+
+                foreach (var path in entries)
                 {
-                    // Create new
+                    bool isFolder = Directory.Exists(path);
+                    
+                    if (existingItems.TryGetValue(path, out var existing))
+                    {
+                        // Refresh timestamp
+                        existing.ModifiedDate = File.GetLastWriteTime(path);
+                        newFilesList.Add(existing);
+                        existingItems.Remove(path);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var info = isFolder ? (FileSystemInfo)new DirectoryInfo(path) : new FileInfo(path);
+                            var pos = GetNextPosition(index);
+
+                            newFilesList.Add(new FileReference
+                            {
+                                FullPath = path,
+                                Name = info.Name,
+                                Extension = isFolder ? string.Empty : info.Extension,
+                                Size = isFolder ? 0 : ((FileInfo)info).Length,
+                                ModifiedDate = info.LastWriteTime,
+                                IconData = null,
+                                IsFolder = isFolder,
+                                X = pos.X,
+                                Y = pos.Y
+                            });
+                        }
+                        catch { continue; }
+                    }
+                    index++;
+                }
+
+                // 2. Batch Update Collection on UI Thread to minimize CollectionChanged events
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    // Temporarily disable change notifications by bulk updating
+                    var removedItems = new List<FileReference>();
+                    var addedItems = new List<FileReference>();
+                    
+                    // Identify what changed
+                    for (int i = Files.Count - 1; i >= 0; i--)
+                    {
+                        if (!newFilesList.Contains(Files[i]))
+                        {
+                            removedItems.Add(Files[i]);
+                        }
+                    }
+
+                    var filesToLoadIcons = new List<FileReference>();
+                    foreach (var newFile in newFilesList)
+                    {
+                        if (!Files.Contains(newFile))
+                        {
+                            addedItems.Add(newFile);
+                            if (newFile.IconData == null)
+                                filesToLoadIcons.Add(newFile);
+                        }
+                    }
+                    
+                    // Apply changes in batch
+                    foreach (var item in removedItems)
+                    {
+                        Files.Remove(item);
+                    }
+                    
+                    foreach (var item in addedItems)
+                    {
+                        Files.Add(item);
+                    }
+
+                    // 3. Queue async icon loading
+                    if (filesToLoadIcons.Count > 0)
+                    {
+                        _ = LoadIconsBatch(filesToLoadIcons);
+                    }
+                    
+                    // Clear refreshing state
+                    IsRefreshing = false;
+                });
+            }
+            catch 
+            { 
+                // Clear refreshing state on error
+                Dispatcher.UIThread.Post(() => IsRefreshing = false);
+            }
+        });
+    }
+
+    private async Task LoadIconsBatch(List<FileReference> files)
+    {
+        const int batchSize = 15; // Increased since bitmap decoding moved off UI thread
+        for (int i = 0; i < files.Count; i += batchSize)
+        {
+            var batch = files.Skip(i).Take(batchSize).ToList();
+            
+            // Load icons in parallel for this batch
+            await Task.WhenAll(batch.Select(async file =>
+            {
+                await Task.Run(() =>
+                {
                     try
                     {
-                        var info = isFolder ? (FileSystemInfo)new DirectoryInfo(path) : new FileInfo(path);
-                        var pos = GetNextPosition(index);
-
-                        newFilesList.Add(new FileReference
-                        {
-                            FullPath = path,
-                            Name = info.Name,
-                            Extension = isFolder ? string.Empty : info.Extension,
-                            Size = isFolder ? 0 : ((FileInfo)info).Length,
-                            ModifiedDate = info.LastWriteTime,
-                            IconData = FileIconHelper.GetFileIconAsBytes(path, false), // Expensive call
-                            IsFolder = isFolder,
-                            X = pos.X,
-                            Y = pos.Y
-                        });
+                        var data = FileIconHelper.GetFileIconAsBytes(file.FullPath, false);
+                        file.IconData = data;
                     }
-                    catch { continue; }
-                }
-                index++;
-            }
-        }
-        catch { return; }
-
-        // Update the ObservableCollection intelligently to reduce UI flicker
-        
-        // 1. Remove items that are no longer present
-        for (int i = Files.Count - 1; i >= 0; i--)
-        {
-            var file = Files[i];
-            // If it's not in our new list (based on object reference since we reused them)
-            // Note: newFilesList contains mixed references: some old, some new.
-            // We need to check if the current file is in the new list.
-            if (!newFilesList.Contains(file))
+                    catch { }
+                });
+            }));
+            
+            // Small yield to allow other async operations
+            if (i + batchSize < files.Count)
             {
-                Files.RemoveAt(i);
-            }
-        }
-
-        // 2. Add new items
-        // We can optimize this by finding where to insert, but appending is safer for now
-        // A simple approach is to ensure the collection matches newFilesList
-        
-        // However, standard "sync" is:
-        // Identify new items
-        foreach (var newFile in newFilesList)
-        {
-            if (!Files.Contains(newFile))
-            {
-                Files.Add(newFile);
+                await Task.Yield();
             }
         }
     }

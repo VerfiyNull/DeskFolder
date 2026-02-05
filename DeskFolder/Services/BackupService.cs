@@ -34,8 +34,8 @@ namespace DeskFolder.Services
 
         public async Task<string> CreateBackupAsync(IProgress<string>? progress = null)
         {
-            // Timeout 45s
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+            // Timeout increased to 10 minutes for large libraries
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
             
             return await Task.Run(() =>
             {
@@ -57,7 +57,7 @@ namespace DeskFolder.Services
                         {
                             try 
                             {
-                                var entry = archive.CreateEntry("config.json");
+                                var entry = archive.CreateEntry("config.json", CompressionLevel.Fastest);
                                 using (var entryStream = entry.Open())
                                 using (var configStream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                                 {
@@ -140,7 +140,7 @@ namespace DeskFolder.Services
                                     // Make relative path for zip entry
                                     // e.g. C:\...\Folders\UUID\file.txt -> Folders/UUID/file.txt
                                     var relativePath = Path.GetRelativePath(_dataFolder, filePath).Replace('\\', '/');
-                                    var entry = archive.CreateEntry(relativePath);
+                                    var entry = archive.CreateEntry(relativePath, CompressionLevel.Fastest);
 
                                     using (var entryStream = entry.Open())
                                     using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))

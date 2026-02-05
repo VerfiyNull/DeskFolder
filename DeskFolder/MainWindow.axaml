@@ -16,6 +16,7 @@
         <converters:BoolToActiveColorConverter x:Key="ActiveColorConverter"/>
         <converters:BoolToActiveTextConverter x:Key="ActiveTextConverter"/>
         <converters:BoolToActiveButtonConverter x:Key="ActiveButtonConverter"/>
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
     </Window.Resources>
 
     <Window.Styles>
@@ -423,7 +424,8 @@
                                                 HorizontalAlignment="Stretch"
                                                 HorizontalContentAlignment="Center"
                                                 VerticalContentAlignment="Center"
-                                                Cursor="Hand">
+                                                Cursor="Hand"
+                                                IsEnabled="{Binding IsRefreshing, Converter={StaticResource InverseBoolConverter}}">
                                             <StackPanel Orientation="Horizontal" Spacing="5">
                                                 <TextBlock Text="🔄" FontSize="13" VerticalAlignment="Center"/>
                                                 <TextBlock Text="Refresh" FontSize="12" FontWeight="Medium" VerticalAlignment="Center"/>

@@ -1,15 +1,34 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+
 namespace DeskFolder.Models;
 
-public class FileReference
+public class FileReference : INotifyPropertyChanged
 {
-    private static readonly string[] _sizeUnits = { "B", "KB", "MB", "GB" };
+    public event PropertyChangedEventHandler? PropertyChanged;
 
+    private static readonly string[] _sizeUnits = { "B", "KB", "MB", "GB" };
+    private byte[]? _iconData;
+    
     public string Name { get; set; } = string.Empty;
     public string FullPath { get; set; } = string.Empty;
     public string Extension { get; set; } = string.Empty;
     public long Size { get; set; }
     public DateTime ModifiedDate { get; set; }
-    public byte[]? IconData { get; set; }
+    
+    public byte[]? IconData 
+    { 
+        get => _iconData;
+        set
+        {
+            if (_iconData != value)
+            {
+                _iconData = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+    
     public bool IsFolder { get; set; }
     public double X { get; set; }
     public double Y { get; set; }
@@ -18,6 +37,11 @@ public class FileReference
     public bool UploadCancelable { get; set; }
 
     public string DisplayName => IsFolder ? Name : Path.GetFileNameWithoutExtension(Name);
+
+    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 
     public string FormattedSize
     {

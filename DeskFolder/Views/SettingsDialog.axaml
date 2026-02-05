@@ -2,216 +2,233 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="DeskFolder.Views.SettingsDialog"
         Title="Settings"
-        Width="720" Height="620"
+        Width="900" Height="650"
         Background="Transparent"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         SystemDecorations="None"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        UseLayoutRounding="True">
 
     <Window.Styles>
-        <Style Selector="TextBox">
-            <Setter Property="SelectionBrush" Value="#6C63FF66"/>
-            <Setter Property="Background" Value="#1E1E22"/>
-            <Setter Property="BorderBrush" Value="#2F2F36"/>
-            <Setter Property="BorderThickness" Value="0"/>
+        <Style Selector="CheckBox">
+            <Setter Property="MinWidth" Value="20"/>
+            <Setter Property="MinHeight" Value="20"/>
         </Style>
-        <Style Selector="TextBox:focus">
-            <Setter Property="Background" Value="#1E1E22"/>
-            <Setter Property="BorderBrush" Value="#2F2F36"/>
+        
+        <!-- Base Card Style (Border) -->
+        <Style Selector="Border.setting-card">
+            <Setter Property="Background" Value="#25252A"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="16,12"/>
         </Style>
-        <Style Selector="NumericUpDown TextBox">
-            <Setter Property="SelectionBrush" Value="#6C63FF66"/>
-            <Setter Property="CaretBrush" Value="#6C63FF"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FocusAdorner" Value="{x:Null}"/>
-        </Style>
-        <Style Selector="NumericUpDown TextBox:focus">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FocusAdorner" Value="{x:Null}"/>
-        </Style>
-        <Style Selector="NumericUpDown">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FocusAdorner" Value="{x:Null}"/>
-        </Style>
-        <Style Selector="NumericUpDown:focus">
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style Selector="NumericUpDown:pointerover">
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style Selector="NumericUpDown /template/ Border">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style Selector="NumericUpDown /template/ Border:focus">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style Selector="NumericUpDown /template/ TextBox">
-            <Setter Property="SelectionBrush" Value="#6C63FF66"/>
-            <Setter Property="CaretBrush" Value="#6C63FF"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FocusAdorner" Value="{x:Null}"/>
-        </Style>
-        <Style Selector="NumericUpDown /template/ TextBox:focus">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FocusAdorner" Value="{x:Null}"/>
-        </Style>
-        <Style Selector="NumericUpDown /template/ TextBox:pointerover">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style Selector="NumericUpDown">
-            <Setter Property="ShowButtonSpinner" Value="False"/>
+
+        <!-- Base Card Style (ToggleButton) -->
+        <Style Selector="ToggleButton.setting-card">
+            <Setter Property="Background" Value="#25252A"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="16,12"/>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Background="Transparent" BorderBrush="Transparent" BorderThickness="0">
-                        <Grid>
-                            <TextBox x:Name="PART_TextBox"
-                                     Text="{TemplateBinding Text}"
-                                     TextAlignment="{TemplateBinding TextAlignment}"
-                                     Watermark="{TemplateBinding Watermark}"
-                                     IsReadOnly="{TemplateBinding IsReadOnly}"
-                                     Foreground="{TemplateBinding Foreground}"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     SelectionBrush="#6C63FF66"
-                                     CaretBrush="#6C63FF"
-                                     FocusAdorner="{x:Null}"/>
-                        </Grid>
+                    <Border Name="CardBorder"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter Content="{TemplateBinding Content}"/>
                     </Border>
                 </ControlTemplate>
             </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                </Transitions>
+            </Setter>
+            <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style Selector="NumericUpDown /template/ TextBox">
-            <Setter Property="SelectionBrush" Value="#6C63FF66"/>
-            <Setter Property="CaretBrush" Value="#6C63FF"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+
+        <!-- ToggleButton Hover Effect Only -->
+        <Style Selector="ToggleButton.setting-card:pointerover /template/ Border#CardBorder">
+            <Setter Property="Background" Value="#2A2A30"/>
         </Style>
-        <Style Selector="NumericUpDown /template/ TextBox:focus">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
+
+        <Style Selector="TextBlock.h1">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#F0F0F0"/>
+        </Style>
+        <Style Selector="TextBlock.h2">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#9A9AA8"/>
         </Style>
     </Window.Styles>
 
     <Border Name="ContentBorder"
-                Background="#1B1B21"
-                CornerRadius="18"
-                BorderBrush="#2C2C33"
-                BorderThickness="1"
-                Margin="14"
-                Padding="32">
-            <Grid RowDefinitions="Auto,*">
-                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12" PointerPressed="TitleBar_PointerPressed" Cursor="Hand">
-                <Border Width="40" Height="40" CornerRadius="12" Background="#6C63FF" Margin="0,0,12,0">
-                    <TextBlock Text="⚙️" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                </Border>
-                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock Text="Settings" FontSize="22" FontWeight="Bold" Foreground="#FFFFFF"/>
-                    <TextBlock Text="Make DeskFolder feel just right"
-                               FontSize="12" Foreground="#9A9AA8"/>
-                </StackPanel>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Name="CancelButton" Content="Cancel"
-                            Click="CancelButton_Click"
-                            Background="#2F2F36" Foreground="#D0D0D6"
-                            Padding="14,10" CornerRadius="10"
-                            BorderThickness="0"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Width="110"/>
-                    <Button Name="SaveButton" Content="Save Changes"
-                            Click="SaveButton_Click"
-                            Background="#6C63FF" Foreground="White"
-                            Padding="14,10" CornerRadius="10"
-                            BorderThickness="0" FontWeight="SemiBold"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Width="150"/>
-                </StackPanel>
-            </Grid>
+            Background="#1B1B21"
+            CornerRadius="16"
+            BorderBrush="#2C2C33"
+            BorderThickness="1"
+            Margin="0"
+            ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*,Auto">
+            
+            <!-- Header -->
+            <Border Grid.Row="0" Padding="24,16" BorderBrush="#2C2C33" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="0,0,20,0">
+                        <TextBlock Text="⚙️" FontSize="24" VerticalAlignment="Center"/>
+                        <TextBlock Text="Global Settings" FontSize="18" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="ESC to close" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </Grid>
+            </Border>
 
-            <ScrollViewer Grid.Row="1" Margin="0,0,0,0" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+            <!-- Main Content -->
+            <ScrollViewer Grid.Row="1" Padding="24" VerticalScrollBarVisibility="Hidden">
                 <StackPanel Spacing="16">
-                    <Border Background="#22222A" CornerRadius="12" Padding="24,18,24,18" BorderBrush="#2F2F36" BorderThickness="1">
+                    
+                    <!-- Behavior Toggles (2x1 Grid) -->
+                    <Grid ColumnDefinitions="*,12,*">
+                        
+                        <!-- Auto Launch -->
+                        <ToggleButton Name="AutoLaunchToggle" Grid.Column="0" Classes="setting-card" HorizontalAlignment="Stretch">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Grid.Column="0" Text="🚀" FontSize="20" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                    <TextBlock Classes="h1" Text="Launch on Startup"/>
+                                    <TextBlock Classes="h2" Text="Start with Windows"/>
+                                </StackPanel>
+                                <CheckBox IsChecked="{Binding $parent[ToggleButton].IsChecked, Mode=OneWay}" IsHitTestVisible="False" Grid.Column="2"/>
+                            </Grid>
+                        </ToggleButton>
+
+                        <!-- Show in Taskbar -->
+                        <ToggleButton Name="TaskbarToggle" Grid.Column="2" Classes="setting-card" HorizontalAlignment="Stretch">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Grid.Column="0" Text="📊" FontSize="20" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                    <TextBlock Classes="h1" Text="Show in Taskbar"/>
+                                    <TextBlock Classes="h2" Text="Display on Windows taskbar"/>
+                                </StackPanel>
+                                <CheckBox IsChecked="{Binding $parent[ToggleButton].IsChecked, Mode=OneWay}" IsHitTestVisible="False" Grid.Column="2"/>
+                            </Grid>
+                        </ToggleButton>
+                    </Grid>
+
+                    <!-- Appearance Toggles (2x1 Grid) -->
+                    <Grid ColumnDefinitions="*,12,*">
+                        
+                        <!-- Hover Border -->
+                        <ToggleButton Name="HoverBorderToggle" Grid.Column="0" Classes="setting-card" HorizontalAlignment="Stretch">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Grid.Column="0" Text="✨" FontSize="20" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                    <TextBlock Classes="h1" Text="Item Hover Effect"/>
+                                    <TextBlock Classes="h2" Text="Show border on hover"/>
+                                </StackPanel>
+                                <CheckBox IsChecked="{Binding $parent[ToggleButton].IsChecked, Mode=OneWay}" IsHitTestVisible="False" Grid.Column="2"/>
+                            </Grid>
+                        </ToggleButton>
+
+                        <!-- Acrylic Background -->
+                        <ToggleButton Name="AcrylicToggle" Grid.Column="2" Classes="setting-card" HorizontalAlignment="Stretch">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Grid.Column="0" Text="💎" FontSize="20" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                    <TextBlock Classes="h1" Text="Acrylic Effect"/>
+                                    <TextBlock Classes="h2" Text="Translucent blur background"/>
+                                </StackPanel>
+                                <CheckBox IsChecked="{Binding $parent[ToggleButton].IsChecked, Mode=OneWay}" IsHitTestVisible="False" Grid.Column="2"/>
+                            </Grid>
+                        </ToggleButton>
+                    </Grid>
+
+                    <!-- Folder Management Section -->
+                    <Border Classes="setting-card">
                         <StackPanel Spacing="12">
-                            <TextBlock Text="Behavior" FontSize="12" FontWeight="SemiBold" Foreground="#9FA0AD"/>
-                            <StackPanel Spacing="6">
-                                <CheckBox Name="AutoLaunchToggle"
-                                          Content="Launch on Windows startup"
-                                          Foreground="#FFFFFF" FontSize="13"/>
-                                <TextBlock Text="Start DeskFolder automatically after you sign in." FontSize="11" Foreground="#8E8E9B" Margin="22,0,0,0"/>
-                            </StackPanel>
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="📁" FontSize="20" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Classes="h1" Text="Global Folder Actions"/>
+                                    <TextBlock Classes="h2" Text="Apply settings to all folders at once"/>
+                                </StackPanel>
+                            </Grid>
+                            <Button Name="ImportGlobalButton" Content="📋  Paste Settings to All Folders" 
+                                    Click="ImportGlobalButton_Click"
+                                    Background="#2F2F36" Foreground="#D0D0D6" 
+                                    BorderThickness="0" CornerRadius="8" 
+                                    FontSize="13" Padding="14,10" 
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    Cursor="Hand"/>
                         </StackPanel>
                     </Border>
 
-                    <Border Background="#22222A" CornerRadius="12" Padding="24,18,24,18" BorderBrush="#2F2F36" BorderThickness="1">
+                    <!-- Keyboard Shortcuts Section -->
+                    <Border Classes="setting-card">
                         <StackPanel Spacing="12">
-                            <TextBlock Text="Appearance" FontSize="12" FontWeight="SemiBold" Foreground="#9FA0AD"/>
-                            
-                            <StackPanel Spacing="6">
-                                <CheckBox Name="HoverBorderToggle"
-                                          Content="Show hover border on files/folders"
-                                          Foreground="#FFFFFF" FontSize="13"/>
-                                <TextBlock Text="Display a colored border when hovering over items." FontSize="11" Foreground="#8E8E9B" Margin="22,0,0,0"/>
-                            </StackPanel>
-                            
-                            <StackPanel Spacing="6">
-                                <CheckBox Name="AcrylicToggle"
-                                          Content="Enable acrylic background effect"
-                                          Foreground="#FFFFFF" FontSize="13"/>
-                                <TextBlock Text="Use translucent blur effect for folder backgrounds (Windows 10+)." FontSize="11" Foreground="#8E8E9B" Margin="22,0,0,0"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Background="#22222A" CornerRadius="12" Padding="24,18,24,18" BorderBrush="#2F2F36" BorderThickness="1">
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Keyboard Shortcuts" FontSize="12" FontWeight="SemiBold" Foreground="#9FA0AD"/>
-                            <TextBlock Text="Click a shortcut to record new keys" FontSize="11" Foreground="#8E8E9B"/>
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="⌨️" FontSize="20" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Classes="h1" Text="Keyboard Shortcuts"/>
+                                    <TextBlock Classes="h2" Text="Click a shortcut to record new keys"/>
+                                </StackPanel>
+                            </Grid>
                             <StackPanel Name="KeybindStack" Spacing="8"/>
                         </StackPanel>
                     </Border>
 
-                     <Border Background="#22222A" CornerRadius="12" Padding="32" BorderBrush="#2F2F36" BorderThickness="1">
+                    <!-- Credits Section -->
+                    <Border Classes="setting-card">
                         <StackPanel Spacing="16" HorizontalAlignment="Center">
-                            <TextBlock Text="Credits" FontSize="14" FontWeight="SemiBold" Foreground="#9FA0AD" HorizontalAlignment="Center"/>
-                            
                             <StackPanel Spacing="6" HorizontalAlignment="Center">
                                 <TextBlock Text="DeskFolder" FontWeight="Bold" FontSize="18" Foreground="#FFFFFF" HorizontalAlignment="Center"/>
                                 <Border Background="#6C63FF" Height="2" Width="24" HorizontalAlignment="Center" CornerRadius="1" Margin="0,2"/>
-                                <TextBlock Text="v2.1.0" Foreground="#6C63FF" FontSize="12" HorizontalAlignment="Center"/>
+                                <TextBlock Text="v1.1.0" Foreground="#6C63FF" FontSize="12" HorizontalAlignment="Center"/>
                             </StackPanel>
-
                             <StackPanel Spacing="4" HorizontalAlignment="Center" Margin="0,8,0,0">
-                                <TextBlock Text="Created by" Foreground="#8E8E9B" FontSize="12" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Created by" Foreground="#8E8E9B" FontSize="11" HorizontalAlignment="Center"/>
                                 <TextBlock Text="KAI ₦UŁŁ" Foreground="#FFFFFF" FontSize="16" FontWeight="ExtraBold" HorizontalAlignment="Center" LetterSpacing="1"/>
-                                <TextBlock Text="Licensed under Custom License" Foreground="#5E5E6B" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                <TextBlock Text="Licensed under Custom License" Foreground="#5E5E6B" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
+                    
+                    <!-- Bottom Spacer -->
+                    <Panel Height="80"/>
+
                 </StackPanel>
             </ScrollViewer>
 
+            <!-- Footer -->
+            <Border Grid.Row="2" Background="#1F1F24" Padding="20,10" BorderBrush="#2C2C33" BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                        <Button Name="ResetButton" Click="ResetButton_Click" Content="Reset Defaults" 
+                                Foreground="#FF6B6B" Background="Transparent" 
+                                BorderThickness="0" FontSize="11" 
+                                Cursor="Hand" CornerRadius="6" Padding="8,8"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12">
+                        <Button Name="CancelButton" Click="CancelButton_Click" Content="Cancel" 
+                                Width="90" Height="34" FontSize="13"
+                                Background="#2F2F36" Foreground="#DDD" 
+                                CornerRadius="8" BorderThickness="0"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                Cursor="Hand"/>
+                        <Button Name="SaveButton" Click="SaveButton_Click" Content="Save" 
+                                Width="90" Height="34" FontSize="13"
+                                Background="#6C63FF" Foreground="#FFF" 
+                                FontWeight="SemiBold"
+                                CornerRadius="8" BorderThickness="0"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                Cursor="Hand"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
         </Grid>
-        </Border>
+    </Border>
 </Window>

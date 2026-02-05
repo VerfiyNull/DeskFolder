@@ -107,6 +107,9 @@ public partial class FolderWindow : Window
     private bool _externalDragInProgress;
     private bool _isFolded = false;
     private double _unfoldedHeight;
+    private System.Threading.Timer? _renderDebounceTimer;
+    private bool _renderPending = false;
+    private Dictionary<FileReference, Border> _fileItemControls = new();
 
     private DragContext _dragContext = new();
     private bool _showHoverBorder = true;
@@ -123,20 +126,23 @@ public partial class FolderWindow : Window
         _keybinds = keybinds ?? new Dictionary<string, string>();
         InitializeComponent();
         
-        // Fix for missing taskbar icon and squished aspect ratio
-        try
+        // Fix for missing taskbar icon - load asynchronously
+        Task.Run(() =>
         {
-            using var stream = Avalonia.Platform.AssetLoader.Open(new Uri("avares://DeskFolder/Assets/icon.png"));
-            if (stream != null)
+            try
             {
-                var squared = Helpers.FileIconHelper.GetSquaredWindowIcon(stream);
-                if (squared != null)
+                using var stream = Avalonia.Platform.AssetLoader.Open(new Uri("avares://DeskFolder/Assets/icon.png"));
+                if (stream != null)
                 {
-                    Icon = squared;
+                    var squared = Helpers.FileIconHelper.GetSquaredWindowIcon(stream);
+                    if (squared != null)
+                    {
+                        Dispatcher.UIThread.Post(() => Icon = squared, DispatcherPriority.Background);
+                    }
                 }
             }
-        }
-        catch { }
+            catch { }
+        });
 
         DataContext = this;
 
@@ -243,8 +249,15 @@ public partial class FolderWindow : Window
             if (fileCanvas != null)
             {
                 SetupDragOverlay(fileCanvas);
-                RenderFileItems();
-                Folder.Files.CollectionChanged += (s2, e2) => RenderFileItems();
+                
+                // Set up collection change listener
+                Folder.Files.CollectionChanged += (s2, e2) => RenderFileItemsDebounced();
+                
+                // Initial render - always progressive for non-blocking UI
+                Dispatcher.UIThread.Post(async () => 
+                {
+                    await RenderFileItemsProgressive();
+                }, DispatcherPriority.Loaded);
             }
             
             var foldButton = this.FindControl<Button>("FoldButton");
@@ -499,6 +512,11 @@ public partial class FolderWindow : Window
         }
     }
     
+    public void UpdateTaskbarVisibility(bool show)
+    {
+        ShowInTaskbar = show;
+    }
+
     private void Folder_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         // Update window size and layout when grid dimensions change in settings
@@ -582,7 +600,47 @@ public partial class FolderWindow : Window
             // Reposition files with new spacing
             RepositionFilesAfterResize();
             
+            // Clear cached controls since visual structure changed
+            ClearRenderCache();
+            
             // Re-render items to update padding
+            RenderFileItems();
+        }
+        else if (e.PropertyName == nameof(Folder.IconSize))
+        {
+            // Window size and layout changes when icon size changes
+            int iconSize = Folder.IconSize + (Folder.ShowFileNames ? 52 : 8);
+            const int borderWidth = 4;
+            const int scrollViewerMargin = 8;
+            const int scrollViewerMarginH = 4;
+            const int titleBarHeight = 30;
+            
+            int newWidth = (Folder.GridColumns * iconSize) + borderWidth + scrollViewerMarginH;
+            int newHeight = (Folder.GridRows * iconSize) + borderWidth + scrollViewerMargin + (Folder.ShowWindowTitle ? titleBarHeight : 0);
+            
+            Width = newWidth;
+            Height = newHeight;
+            
+            // Force layout update
+            var fileList = this.FindControl<ItemsControl>("FileList");
+            if (fileList != null)
+            {
+                fileList.Width = (Folder.GridColumns * iconSize);
+                fileList.InvalidateArrange();
+                fileList.InvalidateMeasure();
+            }
+            
+            InvalidateArrange();
+            InvalidateMeasure();
+            UpdateLayout();
+            
+            // Reposition files with new spacing
+            RepositionFilesAfterResize();
+            
+            // Clear cached controls since visual structure changed (icon sizes)
+            ClearRenderCache();
+            
+            // Re-render items with new icon size
             RenderFileItems();
         }
         else if (e.PropertyName == nameof(Folder.BackgroundOpacity))
@@ -1842,83 +1900,206 @@ public partial class FolderWindow : Window
         canvas.Children.Add(_dragOverlay);
     }
 
-    private void RenderFileItems()
+    private void RenderFileItemsDebounced()
+    {
+        if (_renderPending) return;
+        _renderPending = true;
+        
+        _renderDebounceTimer?.Dispose();
+        _renderDebounceTimer = new System.Threading.Timer(_ =>
+        {
+            Dispatcher.UIThread.Post(async () =>
+            {
+                _renderPending = false;
+                await RenderFileItemsProgressive();
+            }, DispatcherPriority.Background);
+        }, null, 1, System.Threading.Timeout.Infinite);
+    }
+    
+    private async Task RenderFileItemsProgressive()
     {
         var fileCanvas = this.FindControl<Canvas>("FileCanvas");
         if (fileCanvas == null) return;
 
-        fileCanvas.Children.Clear();
-
-        foreach (var file in Folder.Files)
+        var files = Folder.Files.ToList();
+        var fileSet = new HashSet<FileReference>(files);
+        
+        // Remove controls for files that no longer exist (do this in one batch)
+        var toRemove = _fileItemControls.Keys.Where(f => !fileSet.Contains(f)).ToList();
+        foreach (var file in toRemove)
         {
-            int iconSize = Folder.IconSize;
-            int borderPadding = ShowFileNames ? 40 : 8;
-            int borderSize = iconSize + borderPadding;
+            if (_fileItemControls.TryGetValue(file, out var border))
+            {
+                fileCanvas.Children.Remove(border);
+                _fileItemControls.Remove(file);
+            }
+        }
+        
+        // Very small batches - only 3 items per batch for maximum responsiveness
+        const int batchSize = 3;
+        
+        for (int i = 0; i < files.Count; i += batchSize)
+        {
+            var batch = files.Skip(i).Take(batchSize).ToList();
             
-            var itemBorder = new Border
+            foreach (var file in batch)
             {
-                Width = borderSize,
-                Height = ShowFileNames ? borderSize + 12 : borderSize,
-                Cursor = new Cursor(StandardCursorType.Hand),
-                Classes = { _showHoverBorder ? "file-item" : "file-item-no-hover" },
-                Tag = file
-            };
+                if (_fileItemControls.TryGetValue(file, out var existingBorder))
+                {
+                    // Update existing control position if changed
+                    UpdateFileItemPosition(existingBorder, file);
+                }
+                else
+                {
+                    // Create new control for new file
+                    RenderSingleFileItem(fileCanvas, file);
+                }
+            }
+            
+            // Use delay instead of yield to ensure hover/input events can process
+            await Task.Delay(1);
+        }
+    }
+    
+    private void RenderSingleFileItem(Canvas fileCanvas, FileReference file)
+    {
+        int iconSize = Folder.IconSize;
+        int borderPadding = ShowFileNames ? 40 : 8;
+        int borderSize = iconSize + borderPadding;
+        
+        var itemBorder = new Border
+        {
+            Width = borderSize,
+            Height = ShowFileNames ? borderSize + 12 : borderSize,
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Classes = { _showHoverBorder ? "file-item" : "file-item-no-hover" },
+            Tag = file
+        };
 
-            var stackPanel = new StackPanel
-            {
-                Spacing = 4,
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
+        var stackPanel = new StackPanel
+        {
+            Spacing = 4,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
 
-            // Icon image
-            var iconImage = new Image
-            {
-                Width = iconSize,
-                Height = iconSize,
-                Stretch = Avalonia.Media.Stretch.Uniform
-            };
+        // Icon image
+        var iconImage = new Image
+        {
+            Width = iconSize,
+            Height = iconSize,
+            Stretch = Avalonia.Media.Stretch.Uniform
+        };
 
-            if (file.IconData != null && file.IconData.Length > 0)
+        // Load bitmap - decode off UI thread for better performance
+        if (file.IconData != null && file.IconData.Length > 0)
+        {
+            // Even if icon data exists, decode the bitmap off UI thread
+            var iconData = file.IconData; // Capture for closure
+            Task.Run(() =>
             {
                 try
                 {
-                    using var ms = new MemoryStream(file.IconData);
-                    iconImage.Source = new Avalonia.Media.Imaging.Bitmap(ms);
+                    using var ms = new MemoryStream(iconData);
+                    var bitmap = new Avalonia.Media.Imaging.Bitmap(ms);
+                    
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        iconImage.Source = bitmap;
+                        iconImage.Tag = bitmap;
+                    }, DispatcherPriority.Loaded);
                 }
                 catch { }
-            }
-
-            stackPanel.Children.Add(iconImage);
-
-            // File name
-            if (ShowFileNames)
+            });
+        }
+        else
+        {
+            // Listen for async icon loading with background processing
+            file.PropertyChanged += (s, e) =>
             {
-                var nameText = new TextBlock
+                if (e.PropertyName == nameof(FileReference.IconData) && s is FileReference f && f.IconData != null)
                 {
-                    Text = file.DisplayName,
-                    FontSize = 11,
-                    Foreground = Brushes.White,
-                    TextAlignment = Avalonia.Media.TextAlignment.Center,
-                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                    MaxWidth = 96,
-                    MaxLines = 2
-                };
-                stackPanel.Children.Add(nameText);
-            }
+                    // Decode bitmap off UI thread
+                    Task.Run(() =>
+                    {
+                        if (iconImage.Tag != null) return; // Already loaded
+                        
+                        try
+                        {
+                            using var ms = new MemoryStream(f.IconData);
+                            var bitmap = new Avalonia.Media.Imaging.Bitmap(ms);
+                            
+                            // Only UI update on UI thread
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                if (iconImage.Tag == null) // Double-check
+                                {
+                                    iconImage.Source = bitmap;
+                                    iconImage.Tag = bitmap;
+                                }
+                            }, DispatcherPriority.Background);
+                        }
+                        catch { }
+                    });
+                }
+            };
+        }
 
-            itemBorder.Child = stackPanel;
+        stackPanel.Children.Add(iconImage);
 
-            // Attach event handlers
-            itemBorder.PointerPressed += FileItem_PointerPressed;
-            itemBorder.PointerMoved += FileItem_PointerMoved;
-            itemBorder.PointerReleased += FileItem_PointerReleased;
+        // File name
+        if (ShowFileNames)
+        {
+            var nameText = new TextBlock
+            {
+                Text = file.DisplayName,
+                FontSize = 11,
+                Foreground = Brushes.White,
+                TextAlignment = Avalonia.Media.TextAlignment.Center,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                MaxWidth = 96,
+                MaxLines = 2
+            };
+            stackPanel.Children.Add(nameText);
+        }
 
+        itemBorder.Child = stackPanel;
+
+        // Attach event handlers
+        itemBorder.PointerPressed += FileItem_PointerPressed;
+        itemBorder.PointerMoved += FileItem_PointerMoved;
+        itemBorder.PointerReleased += FileItem_PointerReleased;
+
+        Canvas.SetLeft(itemBorder, file.X);
+        Canvas.SetTop(itemBorder, file.Y);
+
+        fileCanvas.Children.Add(itemBorder);
+        _fileItemControls[file] = itemBorder;
+    }
+    
+    private void UpdateFileItemPosition(Border itemBorder, FileReference file)
+    {
+        var currentLeft = Canvas.GetLeft(itemBorder);
+        var currentTop = Canvas.GetTop(itemBorder);
+        
+        if (currentLeft != file.X || currentTop != file.Y)
+        {
             Canvas.SetLeft(itemBorder, file.X);
             Canvas.SetTop(itemBorder, file.Y);
-
-            fileCanvas.Children.Add(itemBorder);
         }
+    }
+    
+    private void ClearRenderCache()
+    {
+        var fileCanvas = this.FindControl<Canvas>("FileCanvas");
+        fileCanvas?.Children.Clear();
+        _fileItemControls.Clear();
+    }
+    
+    private void RenderFileItems()
+    {
+        // Always use progressive rendering for responsiveness
+        Dispatcher.UIThread.Post(async () => await RenderFileItemsProgressive(), DispatcherPriority.Background);
     }
 
     private void HideDragOverlay()

@@ -11,7 +11,7 @@
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the Inno Setup IDE.)
-AppId={{A1B2C3D4-E5F6-7890-1234-567890ABCDEF}
+AppId={A1B2C3D4-E5F6-7890-1234-567890ABCDEF}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -23,7 +23,7 @@ DisableProgramGroupPage=yes
 ; Remove the following line to run in administrative install mode (install for all users.)
 PrivilegesRequired=lowest
 OutputDir=Installer
-OutputBaseFilename=DeskFolder_Setup_v2
+OutputBaseFilename=DeskFolder_Installer
 SetupIconFile=DeskFolder\Assets\icon.ico
 Compression=lzma
 SolidCompression=yes
